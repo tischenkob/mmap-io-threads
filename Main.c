@@ -3,14 +3,21 @@
 #include <pthread.h>
 #include <sys/mman.h>
 
+// Allocation data
+
 FILE *DEV_URANDOM;
 void *MMAP_ADDRESS = (void *)0xF6A3975;
-const long long int MMAP_SIZE = 33 * 1024 * 1024; //33 mb
+const int MMAP_SIZE = 33 * 1024 * 1024;
 const int NUM_MMAP_THREADS = 66;
 
 int thread_counter = 0;
 void *fill_memory();
 int *perform_mmap();
+
+// File data
+const int WRITE_FILE_SIZE = 190 * 1024 * 1024;
+const int IO_BLOCK_SIZE = 114;
+const int NUM_READFILE_THREADS = 107;
 
 int main()
 {
