@@ -3,7 +3,7 @@
 #include <pthread.h>
 #include <sys/mman.h>
 
-const FILE *DEV_URANDOM;
+FILE *DEV_URANDOM;
 void *MMAP_ADDRESS = (void *)0xF6A3975;
 const long long int MMAP_SIZE = 33 * 1024 * 1024; //33 mb
 const int NUM_MMAP_THREADS = 66;
@@ -15,20 +15,29 @@ int *perform_mmap();
 int main()
 {
     DEV_URANDOM = fopen("/dev/urandom", "r");
+
+    // Allocation
     int *mmap_pointer = perform_mmap();
     if (mmap_pointer == MAP_FAILED)
         return -1;
 
+    // Run threads
     pthread_t threads[NUM_MMAP_THREADS];
     for (int i = 0; i < NUM_MMAP_THREADS; i++)
     {
         int return_code = pthread_create(&threads[i], NULL, fill_memory, NULL);
         if (return_code)
-        {
             printf("Thread failed with return code %d", return_code);
-        }
     }
 
+    for (int i = 0; i < NUM_MMAP_THREADS; i++)
+    {
+        pthread_join(threads[i], NULL);
+    }
+
+    fclose(DEV_URANDOM);
+
+    // Deallocation
     int munmap_status = munmap(mmap_pointer, MMAP_SIZE);
     if (munmap_status != 0)
     {
@@ -36,13 +45,12 @@ int main()
         return 1;
     }
 
-    pthread_exit(NULL);
     return 0;
 }
 
 void *fill_memory()
 {
-    printf("Hello! I'm thread number %d \n", thread_counter++);
+    fread(MMAP_ADDRESS, MMAP_SIZE, 1, DEV_URANDOM);
     pthread_exit(NULL);
 }
 
