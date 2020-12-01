@@ -23,6 +23,7 @@ const char *NAME_OUTPUT_FILE = "Output.txt";
 
 int main()
 {
+    printf("-> Before allocation\n");
     DEV_URANDOM = fopen("/dev/urandom", "r");
 
     // Allocation
@@ -30,29 +31,34 @@ int main()
     if (mmap_pointer == MAP_FAILED)
         return -1;
 
+    printf("-> After allocation\n");
+
     // Run threads
     pthread_t threads[NUM_MMAP_THREADS];
     for (int i = 0; i < NUM_MMAP_THREADS; i++)
     {
         int return_code = pthread_create(&threads[i], NULL, thread_fill_task, NULL);
         if (return_code)
-            printf("Thread failed with return code %d", return_code);
+            printf("Thread failed with return code %d\n", return_code);
     }
-
+    printf("-> Threads are running\n");
     for (int i = 0; i < NUM_MMAP_THREADS; i++)
     {
         pthread_join(threads[i], NULL);
     }
 
     // FILE I/O
-    FILE *output_file = fopen(NAME_OUTPUT_FILE, "w");
+    printf("-> Before file io\n");
+    FILE *output_file = fopen(NAME_OUTPUT_FILE, "r+b");
     srandom(time(NULL)); // Seed randomizer
 
     int num_io = WRITE_FILE_SIZE / IO_BLOCK_SIZE;
-    for (int i = 0; i < 2 * num_io; i++)
+    //int size_offset = MMAP_SIZE / IO_BLOCK_SIZE;
+    for (int i = 0; i < num_io; i++)
     {
-        int offset = random() % num_io;
-        fwrite(MMAP_ADDRESS + offset, IO_BLOCK_SIZE, 1, output_file);
+        printf("Fwriting %d\n", i);
+        //int offset = random() % size_offset;
+        fwrite(MMAP_ADDRESS, IO_BLOCK_SIZE, 1, output_file);
     }
 
     fclose(DEV_URANDOM);
@@ -72,12 +78,14 @@ int main()
 void *fill_memory()
 {
     fread(MMAP_ADDRESS, MMAP_SIZE, 1, DEV_URANDOM);
+    return NULL;
 }
 
 void *thread_fill_task()
 {
     fill_memory();
     pthread_exit(NULL);
+    return NULL;
 }
 
 int *perform_mmap(void *from, size_t size)
