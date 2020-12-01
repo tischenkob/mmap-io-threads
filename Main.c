@@ -3,6 +3,7 @@
 #include <pthread.h>
 #include <sys/mman.h>
 #include <time.h>
+#include <stdbool.h>
 
 // Allocation data
 
@@ -49,16 +50,16 @@ int main()
 
     // FILE I/O
     printf("-> Before file io\n");
-    FILE *output_file = fopen(NAME_OUTPUT_FILE, "r+b");
+    FILE *output_file = fopen(NAME_OUTPUT_FILE, "w");
     srandom(time(NULL)); // Seed randomizer
 
     int num_io = WRITE_FILE_SIZE / IO_BLOCK_SIZE;
-    //int size_offset = MMAP_SIZE / IO_BLOCK_SIZE;
+    int size_offset = MMAP_SIZE / IO_BLOCK_SIZE;
     for (int i = 0; i < num_io; i++)
     {
-        printf("Fwriting %d\n", i);
-        //int offset = random() % size_offset;
-        fwrite(MMAP_ADDRESS, IO_BLOCK_SIZE, 1, output_file);
+        int offset = random() % size_offset;
+        void *address = (void *)((int *)MMAP_ADDRESS + offset);
+        fwrite(address, IO_BLOCK_SIZE, 1, output_file);
     }
 
     fclose(DEV_URANDOM);
