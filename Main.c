@@ -17,7 +17,8 @@ void *fill_memory();
 int *perform_mmap(void *from, size_t size);
 
 // File data
-const int WRITE_FILE_SIZE = 190 * 1024 * 1024;
+FILE *OUTPUT_FILE;
+const int OUTPUT_FILE_SIZE = 190 * 1024 * 1024;
 const int IO_BLOCK_SIZE = 114;
 const int NUM_READFILE_THREADS = 107;
 const char *NAME_OUTPUT_FILE = "Output.txt";
@@ -50,20 +51,20 @@ int main()
 
     // FILE I/O
     printf("-> Before file io\n");
-    FILE *output_file = fopen(NAME_OUTPUT_FILE, "w");
+    OUTPUT_FILE = fopen(NAME_OUTPUT_FILE, "w");
     srandom(time(NULL)); // Seed randomizer
 
-    int num_io = WRITE_FILE_SIZE / IO_BLOCK_SIZE;
+    int num_io = OUTPUT_FILE_SIZE / IO_BLOCK_SIZE;
     int size_offset = MMAP_SIZE / IO_BLOCK_SIZE;
     for (int i = 0; i < num_io; i++)
     {
         int offset = random() % size_offset;
         void *address = (void *)((int *)MMAP_ADDRESS + offset);
-        fwrite(address, IO_BLOCK_SIZE, 1, output_file);
+        fwrite(address, IO_BLOCK_SIZE, 1, OUTPUT_FILE);
     }
 
     fclose(DEV_URANDOM);
-    fclose(output_file);
+    fclose(OUTPUT_FILE);
 
     // Deallocation
     int munmap_status = munmap(mmap_pointer, MMAP_SIZE);
