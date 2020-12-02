@@ -7,7 +7,6 @@
 #include <limits.h>
 
 // Allocation data
-
 FILE *DEV_URANDOM;
 void *MMAP_ADDRESS = (void *)0xF6A3975;
 const int MMAP_SIZE = 33 * 1024 * 1024;
@@ -23,6 +22,7 @@ const char *NAME_MAX_FILE = "Output_Max.txt";
 volatile int max_int = INT_MIN;
 
 // Synchronisation variables
+bool should_work = true;
 pthread_mutex_t MUTEX_OUTPUT_FILE;
 pthread_mutex_t MUTEX_MAX_FILE;
 pthread_mutex_t MUTEX_DEV_URANDOM;
@@ -47,6 +47,7 @@ int main()
     pthread_cond_init(&CV_DEV_URANDOM, NULL);
 
     printf("-> Before allocation\n");
+    getchar();
 
     DEV_URANDOM = fopen("/dev/urandom", "r");
     int *mmap_pointer = perform_mmap(MMAP_ADDRESS, MMAP_SIZE);
@@ -54,6 +55,7 @@ int main()
         return -1;
 
     printf("-> After allocation\n");
+    getchar();
 
     pthread_t fillmemory_threads[NUM_MMAP_THREADS];
     for (int i = 0; i < NUM_MMAP_THREADS; i++)
@@ -62,12 +64,12 @@ int main()
         if (return_code)
             printf("Thread failed with return code %d\n", return_code);
     }
-
-    printf("-> Threads are running\n");
-
-    printf("-> Before file io\n");
-
-    printf("-> Let's continue filling the file with garbage!\n");
+    printf("-> Threads are filling memory\n");
+    getchar();
+    int munmap_status = munmap(mmap_pointer, MMAP_SIZE);
+    printf("-> After deallocation\n");
+    getchar();
+    mmap_pointer = perform_mmap(MMAP_ADDRESS, MMAP_SIZE);
 
     pthread_t garbage_refresher_thread;
     pthread_create(&garbage_refresher_thread, NULL, thread_fill_file_task, NULL);
@@ -83,6 +85,7 @@ int main()
     }
 
     pthread_join(garbage_refresher_thread, NULL);
+
     for (int i = 0; i < NUM_MMAP_THREADS; i++)
     {
         pthread_join(fillmemory_threads[i], NULL);
@@ -96,12 +99,14 @@ int main()
     fclose(DEV_URANDOM);
 
     // Deallocation
-    int munmap_status = munmap(mmap_pointer, MMAP_SIZE);
+    munmap_status = munmap(mmap_pointer, MMAP_SIZE);
     if (munmap_status != 0)
     {
         printf("Unmapping Failed\n");
         return 1;
     }
+    printf("-> After deallocation\n");
+    getchar();
 
     return 0;
 }
@@ -118,18 +123,19 @@ void *fill_memory()
 
 void *thread_fill_task()
 {
-    while (true)
+    while (should_work)
     {
         fill_memory();
     }
+    pthread_cond_broadcast(&CV_DEV_URANDOM);
+    pthread_mutex_unlock(&MUTEX_DEV_URANDOM);
     pthread_exit(NULL);
     return NULL;
 }
 
 void *thread_count_max_task()
 {
-    printf("-> Thread count! <-\n");
-    while (true)
+    while (should_work)
     {
         pthread_mutex_lock(&MUTEX_OUTPUT_FILE);
         pthread_cond_wait(&CV_OUTPUT_FILE, &MUTEX_OUTPUT_FILE);
@@ -138,18 +144,13 @@ void *thread_count_max_task()
         int number = INT_MIN;
         while (!feof(file))
         {
-            printf("-> Prepare to read file! <-\n");
-
             fread(&number, sizeof(int), 1, file);
             fflush(file);
-            printf("-> Read %d! <-\n", number);
-            printf("-> Release locks! <-\n");
             if (number > max_int)
             {
-                printf("-> Found new max! <-\n");
                 pthread_mutex_lock(&MUTEX_MAX_FILE);
+                pthread_cond_wait(&CV_MAX_FILE, &MUTEX_MAX_FILE);
                 FILE *max_file = fopen(NAME_MAX_FILE, "a");
-                printf("Current max is %d\n", number);
                 fprintf(max_file, "Current max is %d\n", number);
                 fclose(max_file);
                 max_int = number;
@@ -160,12 +161,14 @@ void *thread_count_max_task()
         pthread_mutex_unlock(&MUTEX_OUTPUT_FILE);
         fclose(file);
     }
+    pthread_mutex_unlock(&MUTEX_OUTPUT_FILE);
+    pthread_exit(NULL);
     return NULL;
 }
 
 void *thread_fill_file_task()
 {
-    while (true)
+    while (should_work)
     {
         pthread_mutex_lock(&MUTEX_OUTPUT_FILE);
         FILE *file = fopen(NAME_OUTPUT_FILE, "a");
@@ -185,6 +188,9 @@ void *thread_fill_file_task()
         pthread_mutex_unlock(&MUTEX_OUTPUT_FILE);
         fclose(file);
     }
+    pthread_cond_broadcast(&CV_OUTPUT_FILE);
+    pthread_mutex_unlock(&MUTEX_OUTPUT_FILE);
+    pthread_exit(NULL);
     return NULL;
 }
 
