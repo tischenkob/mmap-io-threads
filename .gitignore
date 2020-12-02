@@ -1,5 +1,5 @@
 Main
-Output.txt
-Belyakov*
-*.bin
+*.txt
+Belyakov.c
 .vscode/*
+Test*
