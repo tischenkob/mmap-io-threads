@@ -1,2 +1,2 @@
 all:
-	gcc -Wall -Werror -Wpedantic -o Main Main.c -lpthread
+	gcc -Wall -Werror -Wpedantic -o Alt Alt.c -lpthread
